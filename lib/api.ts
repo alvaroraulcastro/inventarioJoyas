@@ -14,6 +14,10 @@ export function jsonError(error: unknown, fallback = "Ocurrió un error inespera
     message =
       "La cuenta de servicio de Google no es válida. Revisa GOOGLE_SERVICE_ACCOUNT_EMAIL y GOOGLE_PRIVATE_KEY.";
     status = 500;
+  } else if (/storage quota|shared drives|GOOGLE_DRIVE_REFRESH_TOKEN/i.test(raw)) {
+    message =
+      "No se pueden subir fotos con la cuenta de servicio. Configura GOOGLE_DRIVE_REFRESH_TOKEN con el dueño de la carpeta de Drive.";
+    status = 500;
   } else if (/permission|403|insufficient/i.test(raw)) {
     message =
       "La cuenta de servicio no tiene permiso. Comparte la hoja y la carpeta de Drive como Editor.";

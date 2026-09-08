@@ -44,6 +44,55 @@ export function createOAuthState() {
   return crypto.randomUUID();
 }
 
+export function getDriveOAuthRedirectUri() {
+  if (process.env.GOOGLE_DRIVE_OAUTH_REDIRECT_URI) {
+    return process.env.GOOGLE_DRIVE_OAUTH_REDIRECT_URI;
+  }
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  return `${base.replace(/\/$/, "")}/callback/drive`;
+}
+
+export function buildGoogleDriveSetupAuthUrl(state: string) {
+  const { clientId } = getGoogleOAuthConfig();
+  const redirectUri = getDriveOAuthRedirectUri();
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: "https://www.googleapis.com/auth/drive.file",
+    state,
+    access_type: "offline",
+    prompt: "consent",
+  });
+
+  return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+}
+
+export async function exchangeCodeForDriveTokens(code: string) {
+  const { clientId, clientSecret } = getGoogleOAuthConfig();
+  const redirectUri = getDriveOAuthRedirectUri();
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    }),
+  });
+
+  const data = (await response.json()) as GoogleTokenResponse & { error?: string; error_description?: string };
+  if (!response.ok) {
+    throw new Error(data.error_description || data.error || "No se pudo obtener el token de Drive.");
+  }
+
+  return data;
+}
+
 export function buildGoogleAuthUrl(state: string) {
   const { clientId, redirectUri } = getGoogleOAuthConfig();
   const params = new URLSearchParams({

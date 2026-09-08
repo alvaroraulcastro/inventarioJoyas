@@ -38,10 +38,7 @@ export function getGoogleAuth() {
   return new google.auth.JWT({
     email,
     key,
-    scopes: [
-      "https://www.googleapis.com/auth/spreadsheets",
-      "https://www.googleapis.com/auth/drive",
-    ],
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
 }
 
@@ -63,8 +60,4 @@ export function getDriveFolderId() {
 
 export function getSheetsClient() {
   return google.sheets({ version: "v4", auth: getGoogleAuth() });
-}
-
-export function getDriveClient() {
-  return google.drive({ version: "v3", auth: getGoogleAuth() });
 }

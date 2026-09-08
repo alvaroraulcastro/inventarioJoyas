@@ -1,5 +1,6 @@
 import { Readable } from "node:stream";
-import { getDriveClient, getDriveFolderId } from "@/lib/google";
+import { getDriveClient } from "@/lib/google-drive-auth";
+import { getDriveFolderId } from "@/lib/google";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const MAX_BYTES = 4 * 1024 * 1024;
