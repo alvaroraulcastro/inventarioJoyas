@@ -1,12 +1,37 @@
 import { google } from "googleapis";
 
+function normalizePrivateKey(raw: string) {
+  let key = raw.trim();
+
+  if (
+    (key.startsWith('"') && key.endsWith('"')) ||
+    (key.startsWith("'") && key.endsWith("'"))
+  ) {
+    key = key.slice(1, -1).trim();
+  }
+
+  if (key.includes("\\n")) {
+    key = key.replace(/\\n/g, "\n");
+  }
+
+  return key;
+}
+
 export function getGoogleAuth() {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const key = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
+  const key = process.env.GOOGLE_PRIVATE_KEY
+    ? normalizePrivateKey(process.env.GOOGLE_PRIVATE_KEY)
+    : undefined;
 
   if (!email || !key) {
     throw new Error(
       "Faltan GOOGLE_SERVICE_ACCOUNT_EMAIL o GOOGLE_PRIVATE_KEY. Configura la cuenta de servicio.",
+    );
+  }
+
+  if (!key.includes("BEGIN PRIVATE KEY")) {
+    throw new Error(
+      "GOOGLE_PRIVATE_KEY no tiene formato PEM válido. Copia el campo private_key completo del JSON.",
     );
   }
 
