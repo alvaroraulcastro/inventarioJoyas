@@ -28,9 +28,14 @@ yarn-error.log*
 .env*.local
 .env
 
+# google service account
+*service-account*.json
+credentials.json
+
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+docs/
