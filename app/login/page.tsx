@@ -1,6 +1,13 @@
 import { LoginForm } from "@/components/LoginForm";
 
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams: Promise<{ error?: string }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = await searchParams;
+  const initialError = params.error ? decodeURIComponent(params.error) : "";
+
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <section className="w-full max-w-md rounded-[2rem] border border-line bg-ivory p-8 shadow-xl">
@@ -9,7 +16,7 @@ export default function LoginPage() {
         <p className="mt-2 mb-8 text-muted">
           Ingresa para administrar piezas, precios y fotografías.
         </p>
-        <LoginForm />
+        <LoginForm initialError={initialError} />
       </section>
     </main>
   );

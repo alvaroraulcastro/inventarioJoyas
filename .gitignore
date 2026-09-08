@@ -28,8 +28,9 @@ yarn-error.log*
 .env*.local
 .env
 
-# google service account
+# google service account / oauth client
 *service-account*.json
+client_secret*.json
 credentials.json
 
 # vercel
@@ -39,3 +40,5 @@ credentials.json
 *.tsbuildinfo
 next-env.d.ts
 docs/
+client_secret_238031227728.json
+inventariojoyas-508002-c938f35a2aaa.json

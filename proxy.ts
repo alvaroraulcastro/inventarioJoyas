@@ -2,7 +2,7 @@ import { jwtVerify } from "jose";
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/auth-constants";
 
-const PUBLIC_PATHS = new Set(["/login", "/api/auth/login"]);
+const PUBLIC_PATHS = new Set(["/login", "/callback", "/api/auth/login", "/api/auth/google"]);
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.has(pathname);
