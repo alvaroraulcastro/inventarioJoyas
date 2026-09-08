@@ -1,8 +1,14 @@
 import { getSheetId, getSheetsClient } from "@/lib/google";
-import { SHEET_HEADERS, type Pieza, type PiezaInput } from "@/lib/types";
+import {
+  LEGACY_SHEET_HEADERS,
+  SHEET_HEADERS,
+  isPiezaActiva,
+  type Pieza,
+  type PiezaInput,
+} from "@/lib/types";
 
 const SHEET_TITLE = "Inventario";
-const RANGE = `${SHEET_TITLE}!A:Q`;
+const RANGE = `${SHEET_TITLE}!A:S`;
 
 function nowIso() {
   return new Date().toISOString();
@@ -12,26 +18,36 @@ function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : String(value ?? "").trim();
 }
 
-function rowToPieza(row: string[]): Pieza {
-  const values = SHEET_HEADERS.map((_, index) => asString(row[index]));
+function headersMatch(row: string[], expected: readonly string[]) {
+  return expected.every((header, index) => asString(row[index]) === header);
+}
+
+function rowToPieza(row: string[], headers: readonly string[]) {
+  const get = (key: (typeof SHEET_HEADERS)[number]) => {
+    const index = headers.indexOf(key);
+    return index >= 0 ? asString(row[index]) : "";
+  };
+
   return {
-    id: values[0],
-    codigo: values[1],
-    nombre: values[2],
-    tipo: values[3],
-    material: values[4],
-    kilates: values[5],
-    peso_gramos: values[6],
-    talla: values[7],
-    piedras: values[8],
-    precio_costo: values[9],
-    precio_venta: values[10],
-    estado: values[11],
-    ubicacion: values[12],
-    fecha_ingreso: values[13],
-    foto_id: values[14],
-    notas: values[15],
-    actualizado_en: values[16],
+    id: get("id"),
+    codigo: get("codigo"),
+    nombre: get("nombre"),
+    tipo: get("tipo"),
+    material: get("material"),
+    kilates: get("kilates"),
+    peso_gramos: get("peso_gramos"),
+    talla: get("talla"),
+    piedras: get("piedras"),
+    precio_costo: get("precio_costo"),
+    precio_venta: get("precio_venta"),
+    stock: get("stock") || "1",
+    estado: get("estado"),
+    ubicacion: get("ubicacion"),
+    fecha_ingreso: get("fecha_ingreso"),
+    foto_id: get("foto_id"),
+    notas: get("notas"),
+    activo: get("activo") || "si",
+    actualizado_en: get("actualizado_en"),
   };
 }
 
@@ -45,36 +61,48 @@ function normalizeInput(input: PiezaInput, current?: Pieza): Pieza {
     throw new Error("El nombre de la pieza es obligatorio.");
   }
 
+  const stock = asString(input.stock);
+  const stockNumber = Number(stock.replace(",", "."));
+  if (stock && Number.isNaN(stockNumber)) {
+    throw new Error("El stock debe ser un número válido.");
+  }
+
+  const activo = asString(input.activo).toLowerCase() || "si";
+  if (!["si", "no"].includes(activo)) {
+    throw new Error('El campo activo debe ser "si" o "no".');
+  }
+
   return {
     id: current?.id ?? input.id ?? crypto.randomUUID(),
     codigo: asString(input.codigo),
     nombre,
     tipo: asString(input.tipo) || "otro",
-    material: asString(input.material) || "otro",
+    material: asString(input.material) || "acero",
     kilates: asString(input.kilates),
     peso_gramos: asString(input.peso_gramos),
     talla: asString(input.talla),
     piedras: asString(input.piedras),
     precio_costo: asString(input.precio_costo),
     precio_venta: asString(input.precio_venta),
+    stock: stock || "1",
     estado: asString(input.estado) || "disponible",
     ubicacion: asString(input.ubicacion),
     fecha_ingreso: asString(input.fecha_ingreso) || new Date().toISOString().slice(0, 10),
     foto_id: current?.foto_id ?? asString(input.foto_id),
     notas: asString(input.notas),
+    activo: activo,
     actualizado_en: nowIso(),
   };
 }
 
-async function getNumericSheetId(spreadsheetId: string) {
+async function readSheetValues() {
   const sheets = getSheetsClient();
-  const meta = await sheets.spreadsheets.get({ spreadsheetId });
-  const sheet = meta.data.sheets?.find((item) => item.properties?.title === SHEET_TITLE);
-  const sheetId = sheet?.properties?.sheetId;
-  if (sheetId == null) {
-    throw new Error("No se encontró la pestaña Inventario.");
-  }
-  return sheetId;
+  const spreadsheetId = getSheetId();
+  const result = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: RANGE,
+  });
+  return result.data.values ?? [];
 }
 
 export async function ensureInventarioSheet() {
@@ -92,11 +120,9 @@ export async function ensureInventarioSheet() {
     });
   }
 
-  const header = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${SHEET_TITLE}!1:1`,
-  });
-  const firstCell = header.data.values?.[0]?.[0];
+  const values = await readSheetValues();
+  const headerRow = values[0]?.map((cell) => asString(cell)) ?? [];
+  const firstCell = headerRow[0];
 
   if (firstCell !== "id") {
     await sheets.spreadsheets.values.update({
@@ -105,32 +131,46 @@ export async function ensureInventarioSheet() {
       valueInputOption: "RAW",
       requestBody: { values: [[...SHEET_HEADERS]] },
     });
+    return;
   }
+
+  if (headersMatch(headerRow, SHEET_HEADERS)) {
+    return;
+  }
+
+  const dataRows = values.slice(1);
+  const migratedRows = dataRows
+    .filter((row) => asString(row[0]))
+    .map((row) => piezaToRow(rowToPieza(row.map((cell) => asString(cell)), headerRow)));
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `${SHEET_TITLE}!A1`,
+    valueInputOption: "RAW",
+    requestBody: {
+      values: [[...SHEET_HEADERS], ...migratedRows],
+    },
+  });
 }
 
 async function readRows() {
   await ensureInventarioSheet();
-  const sheets = getSheetsClient();
-  const spreadsheetId = getSheetId();
-  const result = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: RANGE,
-  });
-  const [headers, ...rows] = result.data.values ?? [];
-  if (!headers?.length) return [];
+  const values = await readSheetValues();
+  const [headerRow, ...rows] = values;
+  const headers = headerRow?.map((cell) => asString(cell)) ?? [];
+  if (!headers.length) return [];
+
   return rows
     .map((row, index) => ({
       rowNumber: index + 2,
-      pieza: rowToPieza(row.map((cell) => asString(cell))),
+      pieza: rowToPieza(row.map((cell) => asString(cell)), headers),
     }))
     .filter((item) => item.pieza.id);
 }
 
 export async function listPiezas() {
   const rows = await readRows();
-  return rows
-    .map((item) => item.pieza)
-    .sort((a, b) => b.actualizado_en.localeCompare(a.actualizado_en));
+  return rows.map((item) => item.pieza);
 }
 
 export async function getPieza(id: string) {
@@ -165,7 +205,7 @@ export async function updatePieza(id: string, input: PiezaInput) {
   const spreadsheetId = getSheetId();
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${SHEET_TITLE}!A${found.rowNumber}:Q${found.rowNumber}`,
+    range: `${SHEET_TITLE}!A${found.rowNumber}:S${found.rowNumber}`,
     valueInputOption: "RAW",
     requestBody: { values: [piezaToRow(pieza)] },
   });
@@ -187,39 +227,40 @@ export async function updatePiezaFoto(id: string, fotoId: string) {
   const spreadsheetId = getSheetId();
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${SHEET_TITLE}!A${found.rowNumber}:Q${found.rowNumber}`,
+    range: `${SHEET_TITLE}!A${found.rowNumber}:S${found.rowNumber}`,
     valueInputOption: "RAW",
     requestBody: { values: [piezaToRow(pieza)] },
   });
   return { previousFotoId: found.pieza.foto_id, pieza };
 }
 
-export async function deletePieza(id: string) {
+export async function setPiezaActiva(id: string, activo: "si" | "no") {
   const found = await getPieza(id);
   if (!found) {
     throw new Error("La pieza no existe.");
   }
 
-  const spreadsheetId = getSheetId();
-  const sheetId = await getNumericSheetId(spreadsheetId);
+  if (activo === "no" && !isPiezaActiva(found.pieza.activo)) {
+    throw new Error("La pieza ya está desactivada.");
+  }
+  if (activo === "si" && isPiezaActiva(found.pieza.activo)) {
+    throw new Error("La pieza ya está activa.");
+  }
+
+  const pieza: Pieza = {
+    ...found.pieza,
+    activo,
+    actualizado_en: nowIso(),
+  };
+
   const sheets = getSheetsClient();
-  await sheets.spreadsheets.batchUpdate({
+  const spreadsheetId = getSheetId();
+  await sheets.spreadsheets.values.update({
     spreadsheetId,
-    requestBody: {
-      requests: [
-        {
-          deleteDimension: {
-            range: {
-              sheetId,
-              dimension: "ROWS",
-              startIndex: found.rowNumber - 1,
-              endIndex: found.rowNumber,
-            },
-          },
-        },
-      ],
-    },
+    range: `${SHEET_TITLE}!A${found.rowNumber}:S${found.rowNumber}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [piezaToRow(pieza)] },
   });
 
-  return found.pieza;
+  return pieza;
 }
