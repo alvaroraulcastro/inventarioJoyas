@@ -9,6 +9,7 @@ import {
   TIPOS_PIEZA,
   TIPO_LABELS,
   emptyPiezaInput,
+  isPiezaActiva,
   type Pieza,
   type PiezaInput,
 } from "@/lib/types";
@@ -38,10 +39,12 @@ export function PieceForm({ piece, onClose, onSaved }: PieceFormProps) {
         piedras: piece.piedras,
         precio_costo: piece.precio_costo,
         precio_venta: piece.precio_venta,
+        stock: piece.stock || "1",
         estado: piece.estado,
         ubicacion: piece.ubicacion,
         fecha_ingreso: piece.fecha_ingreso,
         notas: piece.notas,
+        activo: isPiezaActiva(piece.activo) ? "si" : "no",
       });
     } else {
       setForm(emptyPiezaInput());
@@ -222,6 +225,17 @@ export function PieceForm({ piece, onClose, onSaved }: PieceFormProps) {
                 inputMode="decimal"
                 value={form.precio_venta}
                 onChange={(event) => update("precio_venta", event.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="stock">Stock</label>
+              <input
+                id="stock"
+                inputMode="numeric"
+                min="0"
+                value={form.stock}
+                onChange={(event) => update("stock", event.target.value)}
+                required
               />
             </div>
             <div className="field">

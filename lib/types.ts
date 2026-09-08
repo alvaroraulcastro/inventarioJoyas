@@ -9,10 +9,11 @@ export const TIPOS_PIEZA = [
 ] as const;
 
 export const MATERIALES_PIEZA = [
+  "acero",
+  "laminado_oro",
   "oro",
   "plata",
   "platino",
-  "acero",
   "otro",
 ] as const;
 
@@ -23,11 +24,36 @@ export const ESTADOS_PIEZA = [
   "consignacion",
 ] as const;
 
+export const ACTIVO_VALUES = ["si", "no"] as const;
+
 export type TipoPieza = (typeof TIPOS_PIEZA)[number];
 export type MaterialPieza = (typeof MATERIALES_PIEZA)[number];
 export type EstadoPieza = (typeof ESTADOS_PIEZA)[number];
+export type ActivoPieza = (typeof ACTIVO_VALUES)[number];
 
 export const SHEET_HEADERS = [
+  "id",
+  "codigo",
+  "nombre",
+  "tipo",
+  "material",
+  "kilates",
+  "peso_gramos",
+  "talla",
+  "piedras",
+  "precio_costo",
+  "precio_venta",
+  "stock",
+  "estado",
+  "ubicacion",
+  "fecha_ingreso",
+  "foto_id",
+  "notas",
+  "activo",
+  "actualizado_en",
+] as const;
+
+export const LEGACY_SHEET_HEADERS = [
   "id",
   "codigo",
   "nombre",
@@ -49,6 +75,9 @@ export const SHEET_HEADERS = [
 
 export type PiezaField = (typeof SHEET_HEADERS)[number];
 
+export type SortField = "fecha_ingreso" | "stock" | "nombre" | "estado";
+export type SortDirection = "asc" | "desc";
+
 export interface Pieza {
   id: string;
   codigo: string;
@@ -61,11 +90,13 @@ export interface Pieza {
   piedras: string;
   precio_costo: string;
   precio_venta: string;
+  stock: string;
   estado: string;
   ubicacion: string;
   fecha_ingreso: string;
   foto_id: string;
   notas: string;
+  activo: string;
   actualizado_en: string;
 }
 
@@ -85,10 +116,11 @@ export const TIPO_LABELS: Record<string, string> = {
 };
 
 export const MATERIAL_LABELS: Record<string, string> = {
+  acero: "Acero",
+  laminado_oro: "Laminado en Oro",
   oro: "Oro",
   plata: "Plata",
   platino: "Platino",
-  acero: "Acero",
   otro: "Otro",
 };
 
@@ -99,22 +131,36 @@ export const ESTADO_LABELS: Record<string, string> = {
   consignacion: "Consignación",
 };
 
+export const SORT_FIELD_LABELS: Record<SortField, string> = {
+  fecha_ingreso: "Fecha de ingreso",
+  stock: "Stock",
+  nombre: "Nombre",
+  estado: "Estado",
+};
+
+export function isPiezaActiva(activo: string) {
+  const value = activo.trim().toLowerCase();
+  return value === "" || value === "si" || value === "sí" || value === "true" || value === "1";
+}
+
 export function emptyPiezaInput(): PiezaInput {
   const today = new Date().toISOString().slice(0, 10);
   return {
     codigo: "",
     nombre: "",
     tipo: "anillo",
-    material: "oro",
+    material: "acero",
     kilates: "",
     peso_gramos: "",
     talla: "",
     piedras: "",
     precio_costo: "",
     precio_venta: "",
+    stock: "1",
     estado: "disponible",
     ubicacion: "",
     fecha_ingreso: today,
     notas: "",
+    activo: "si",
   };
 }
